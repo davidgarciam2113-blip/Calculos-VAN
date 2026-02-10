@@ -2,15 +2,20 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Práctica VAN - 2º Bachillerato</title>
+<title>Práctica VAN - Visual</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-body { font-family: Arial, sans-serif; max-width: 700px; margin: auto; padding: 20px; }
-input { margin: 5px; width: 100px; }
+body { font-family: Arial, sans-serif; max-width: 900px; margin: auto; padding: 20px; }
+input { margin: 5px; width: 120px; }
 .hidden { display: none; }
 h1, h3 { color: #2c3e50; }
-button { padding: 5px 10px; margin-top: 10px; }
-table { border-collapse: collapse; margin-top: 10px; }
-td, th { border: 1px solid #ccc; padding: 5px 10px; }
+button { padding: 5px 10px; margin-top: 10px; cursor: pointer; }
+table { border-collapse: collapse; margin-top: 10px; width: 100%; }
+td, th { border: 1px solid #ccc; padding: 5px 10px; text-align: center; }
+th { background-color: #f0f0f0; }
+.ingreso { background-color: #d4edda; }
+.gasto { background-color: #f8d7da; }
+.inversion { font-weight: bold; color: #155724; }
 </style>
 </head>
 <body>
@@ -30,24 +35,27 @@ td, th { border: 1px solid #ccc; padding: 5px 10px; }
 
 <div id="proyecto" class="hidden">
     <h3>Datos del proyecto</h3>
-    <p>Inversión inicial: <span id="inversion"></span></p>
+    <p class="inversion">Inversión inicial: <span id="inversion"></span></p>
     <p>Tasa de descuento: <span id="tasa"></span>%</p>
 
     <table id="tablaFlujos">
-        <tr><th>Año</th><th>Ingreso</th><th>Gasto</th></tr>
+        <tr><th>Año</th><th>Ingreso</th><th>Gasto</th><th>Flujo Neto</th></tr>
     </table>
 
     <label>Introduce tu cálculo del VAN: <input type="number" id="vanAlumno"></label><br>
     <button onclick="verificarVAN()">Verificar VAN</button>
+
+    <canvas id="graficoVAN" width="800" height="300" style="margin-top:20px;"></canvas>
 </div>
 
 <div id="resultado" class="hidden"></div>
 
 <script>
-// Generar número aleatorio entero
-function aleatorio(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+// Generar números aleatorios
+function aleatorio(min, max) { return Math.floor(Math.random()*(max-min+1))+min; }
 
 let vanCorrecto = 0;
+let flujosNetos = [];
 
 function generarProyecto() {
     const nombre = document.getElementById("nombre").value.trim();
@@ -55,50 +63,92 @@ function generarProyecto() {
 
     const nivel = parseInt(document.getElementById("nivel").value);
     const inversion = aleatorio(5000, 20000);
-    const tasa = aleatorio(5, 15); // %
+    const tasa = aleatorio(5, 15);
     document.getElementById("inversion").innerText = inversion;
     document.getElementById("tasa").innerText = tasa;
 
+    // Limpiar tabla
     const tabla = document.getElementById("tablaFlujos");
-    // Limpiar filas anteriores
     while (tabla.rows.length > 1) tabla.deleteRow(1);
 
-    // Generar flujos aleatorios
-    let flujos = [];
-    for (let i = 1; i <= nivel; i++) {
+    flujosNetos = [];
+    let acumulado = -inversion;
+    let acumuladosVAN = [acumulado];
+
+    // Generar flujos y llenar tabla
+    for (let i=1; i<=nivel; i++) {
         const ingreso = aleatorio(2000, 10000);
         const gasto = aleatorio(0, 5000);
-        flujos.push(ingreso - gasto);
+        const flujoNeto = ingreso - gasto;
+        flujosNetos.push(flujoNeto);
+
         const row = tabla.insertRow();
         row.insertCell(0).innerText = i;
         row.insertCell(1).innerText = ingreso;
+        row.cells[1].className = "ingreso";
         row.insertCell(2).innerText = gasto;
+        row.cells[2].className = "gasto";
+        row.insertCell(3).innerText = flujoNeto;
+
+        // VAN acumulado
+        acumulado += flujoNeto / Math.pow(1 + tasa/100, i);
+        acumuladosVAN.push(acumulado);
     }
 
-    // Calcular VAN correcto
-    vanCorrecto = -inversion;
-    for (let i = 0; i < flujos.length; i++) {
-        vanCorrecto += flujos[i] / Math.pow(1 + tasa/100, i+1);
-    }
+    vanCorrecto = acumulado;
 
+    // Guardar historial
     localStorage.setItem("nombreActual", nombre);
+    localStorage.setItem("tasaActual", tasa);
+    localStorage.setItem("inversionActual", inversion);
+
     document.getElementById("inicio").classList.add("hidden");
     document.getElementById("proyecto").classList.remove("hidden");
+
+    // Dibujar gráfico
+    dibujarGrafico(acumuladosVAN);
 }
 
-// Verificar VAN ingresado por alumno
+function dibujarGrafico(acumulados) {
+    const ctx = document.getElementById("graficoVAN").getContext("2d");
+    if (window.grafico) window.grafico.destroy();
+
+    window.grafico = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: Array.from({length: acumulados.length}, (_, i) => i), 
+            datasets: [{
+                label: 'VAN acumulado',
+                data: acumulados,
+                borderColor: 'blue',
+                backgroundColor: 'rgba(0,0,255,0.1)',
+                tension: 0.2,
+                fill: true
+            }]
+        },
+        options: {
+            scales: {
+                x: { title: { display: true, text: 'Año' } },
+                y: { title: { display: true, text: 'VAN acumulado' } }
+            }
+        }
+    });
+}
+
 function verificarVAN() {
     const nombre = localStorage.getItem("nombreActual");
     const vanAlumno = parseFloat(document.getElementById("vanAlumno").value);
     if (isNaN(vanAlumno)) { alert("Introduce un número válido"); return; }
 
-    // Comparar con VAN correcto dentro de un margen (5%)
-    const margen = Math.abs(vanCorrecto) * 0.05; 
+    // Comparar con margen de 5%
+    const margen = Math.abs(vanCorrecto)*0.05;
     let nota;
-    if (Math.abs(vanAlumno - vanCorrecto) <= margen) nota = 10;
-    else if (Math.abs(vanAlumno - vanCorrecto) <= margen*2) nota = 8;
-    else if (Math.abs(vanAlumno - vanCorrecto) <= margen*4) nota = 6;
-    else if (Math.abs(vanAlumno - vanCorrecto) <= margen*6) nota = 4;
+    const errorAbs = Math.abs(vanAlumno - vanCorrecto);
+
+    if (errorAbs <= margen) nota = 10;
+    else if (errorAbs <= margen*2) nota = 8;
+    else if (errorAbs <= margen*4) nota = 6;
+    else if (errorAbs <= margen*6) nota = 4;
     else nota = 2;
 
     // Guardar historial
@@ -107,9 +157,8 @@ function verificarVAN() {
     historial[nombre].intentos += 1;
     if (nota >= 6) historial[nombre].aciertos += 1;
     localStorage.setItem("historialVAN", JSON.stringify(historial));
-    const porcentaje = (historial[nombre].aciertos / historial[nombre].intentos) * 100;
+    const porcentaje = (historial[nombre].aciertos / historial[nombre].intentos)*100;
 
-    // Mostrar resultado
     const resDiv = document.getElementById("resultado");
     resDiv.innerHTML = `
         <h3>Resultado del alumno ${nombre}</h3>
@@ -127,6 +176,8 @@ function reiniciar() {
     document.getElementById("proyecto").classList.add("hidden");
     document.getElementById("resultado").classList.add("hidden");
     document.getElementById("vanAlumno").value = "";
+    while(document.getElementById("tablaFlujos").rows.length>1) document.getElementById("tablaFlujos").deleteRow(1);
+    if (window.grafico) window.grafico.destroy();
 }
 </script>
 </body>

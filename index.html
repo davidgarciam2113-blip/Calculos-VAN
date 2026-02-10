@@ -4,33 +4,34 @@
 <meta charset="UTF-8">
 <title>Calculadora de VAN - 2º Bachillerato</title>
 <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
+    body { font-family: Arial, sans-serif; padding: 20px; max-width: 700px; margin: auto; }
     input { margin: 5px; }
     .flujo { margin-bottom: 10px; }
     .hidden { display: none; }
+    h1, h3 { color: #2c3e50; }
+    button { padding: 5px 10px; margin-top: 10px; }
 </style>
 </head>
 <body>
-<h1>Calculadora de VAN para alumnos de 2º Bachillerato</h1>
+<h1>Calculadora de VAN para 2º Bachillerato</h1>
 
 <div id="inicio">
-    Nombre del alumno: <input type="text" id="nombre"><br><br>
-    Nivel de dificultad: 
-    <select id="nivel">
-        <option value="3">Básico (3 años)</option>
-        <option value="6">Medio (6 años)</option>
-        <option value="10">Difícil (10 años)</option>
-    </select><br><br>
+    <label>Nombre del alumno: <input type="text" id="nombre"></label><br><br>
+    <label>Nivel de dificultad: 
+        <select id="nivel">
+            <option value="3">Básico (3 años)</option>
+            <option value="6">Medio (6 años)</option>
+            <option value="10">Difícil (10 años)</option>
+        </select>
+    </label><br><br>
     <button onclick="iniciarProyecto()">Iniciar Proyecto</button>
 </div>
 
 <div id="proyecto" class="hidden">
     <h3>Datos del proyecto</h3>
-    Inversión inicial: <input type="number" id="inversion"><br>
-    Tasa de descuento (%): <input type="number" id="tasa"><br><br>
-
+    <label>Inversión inicial: <input type="number" id="inversion" value="0"></label><br>
+    <label>Tasa de descuento (%): <input type="number" id="tasa" value="0"></label><br><br>
     <div id="flujos"></div>
-
     <button onclick="calcularVAN()">Calcular VAN</button>
 </div>
 
@@ -39,16 +40,13 @@
 <script>
 function iniciarProyecto() {
     const nombre = document.getElementById("nombre").value.trim();
-    if (!nombre) {
-        alert("Introduce tu nombre.");
-        return;
-    }
+    if (!nombre) { alert("Introduce tu nombre."); return; }
 
     const nivel = parseInt(document.getElementById("nivel").value);
     const flujosDiv = document.getElementById("flujos");
     flujosDiv.innerHTML = "<h4>Flujos de caja por año</h4>";
 
-    // Generar inputs para cada año según dificultad
+    // Crear inputs de ingresos y gastos por año
     for (let i = 1; i <= nivel; i++) {
         const div = document.createElement("div");
         div.className = "flujo";
@@ -62,13 +60,14 @@ function iniciarProyecto() {
     document.getElementById("inicio").classList.add("hidden");
     document.getElementById("proyecto").classList.remove("hidden");
     localStorage.setItem("nombreActual", nombre);
+    localStorage.setItem("nivelActual", nivel);
 }
 
 function calcularVAN() {
     const nombre = localStorage.getItem("nombreActual");
+    const nivel = parseInt(localStorage.getItem("nivelActual"));
     const inversion = parseFloat(document.getElementById("inversion").value);
     const tasa = parseFloat(document.getElementById("tasa").value) / 100;
-    const nivel = parseInt(document.getElementById("nivel").value);
 
     let flujos = [];
     for (let i = 1; i <= nivel; i++) {
@@ -83,35 +82,42 @@ function calcularVAN() {
         van += flujos[i] / Math.pow(1 + tasa, i+1);
     }
 
-    // Calcular nota
-    const vanReal = van; // Para práctica, VAN calculado se considera "correcto"
-    let diferencia = Math.abs(vanReal - van);
+    // Calcular nota (puedes ajustar los rangos según lo que consideres "acierto")
     let nota;
+    const diferencia = 0; // En esta versión práctica, VAN calculado es "correcto"
     if (diferencia < 100) nota = 10;
     else if (diferencia < 500) nota = 8;
     else if (diferencia < 1000) nota = 6;
     else if (diferencia < 2000) nota = 4;
     else nota = 2;
 
-    // Actualizar historial en localStorage
+    // Guardar historial en localStorage
     let historial = JSON.parse(localStorage.getItem("historialVAN") || "{}");
-    if (!historial[nombre]) {
-        historial[nombre] = { intentos: 0, aciertos: 0 };
-    }
+    if (!historial[nombre]) { historial[nombre] = { intentos: 0, aciertos: 0 }; }
     historial[nombre].intentos += 1;
     if (nota >= 6) historial[nombre].aciertos += 1;
-    const porcentaje = (historial[nombre].aciertos / historial[nombre].intentos) * 100;
     localStorage.setItem("historialVAN", JSON.stringify(historial));
 
-    // Mostrar resultados
+    const porcentaje = (historial[nombre].aciertos / historial[nombre].intentos) * 100;
+
+    // Mostrar resultado
     const resultadoDiv = document.getElementById("resultado");
     resultadoDiv.innerHTML = `
         <h3>Resultado del alumno ${nombre}</h3>
         Valor Actual Neto (VAN): ${van.toFixed(2)}<br>
         Nota obtenida: ${nota}/10<br>
         Porcentaje de aciertos histórico: ${porcentaje.toFixed(2)}%
+        <br><br>
+        <button onclick="reiniciar()">Nuevo proyecto</button>
     `;
     resultadoDiv.classList.remove("hidden");
+}
+
+function reiniciar() {
+    document.getElementById("proyecto").classList.add("hidden");
+    document.getElementById("resultado").classList.add("hidden");
+    document.getElementById("inicio").classList.remove("hidden");
+    document.getElementById("flujos").innerHTML = "";
 }
 </script>
 </body>

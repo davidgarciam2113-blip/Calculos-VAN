@@ -1,0 +1,99 @@
+import json
+import os
+
+HISTORIAL_FILE = "historial_van.json"
+
+def cargar_historial():
+    if os.path.exists(HISTORIAL_FILE):
+        with open(HISTORIAL_FILE, "r") as f:
+            return json.load(f)
+    return {}
+
+def guardar_historial(historial):
+    with open(HISTORIAL_FILE, "w") as f:
+        json.dump(historial, f)
+
+def calcular_van(tasa_descuento, flujos):
+    van = 0
+    for i, flujo in enumerate(flujos):
+        van += flujo / ((1 + tasa_descuento) ** (i + 1))
+    return van
+
+def pedir_flujos(num_years):
+    flujos = []
+    for año in range(1, num_years + 1):
+        print(f"\nAño {año}:")
+        ingreso = float(input("  Ingresos del año: "))
+        gasto = float(input("  Gastos del año (0 si no hay): "))
+        flujo_neto = ingreso - gasto
+        flujos.append(flujo_neto)
+    return flujos
+
+def calcular_nota(van_calculado, van_real):
+    diferencia = abs(van_real - van_calculado)
+    if diferencia < 100:  # muy preciso
+        return 10
+    elif diferencia < 500:
+        return 8
+    elif diferencia < 1000:
+        return 6
+    elif diferencia < 2000:
+        return 4
+    else:
+        return 2
+
+def main():
+    print("=== Calculadora de VAN para alumnos de 2º Bachillerato ===")
+    nombre = input("Introduce tu nombre: ").strip()
+
+    # Cargar historial
+    historial = cargar_historial()
+    if nombre not in historial:
+        historial[nombre] = {"intentos": 0, "aciertos": 0}
+
+    # Selección de dificultad
+    print("\nElige el nivel de dificultad:")
+    print("1 - Básico (3 años)")
+    print("2 - Medio (6 años)")
+    print("3 - Difícil (10 años)")
+    nivel = int(input("Nivel (1-3): "))
+    if nivel == 1:
+        años = 3
+    elif nivel == 2:
+        años = 6
+    elif nivel == 3:
+        años = 10
+    else:
+        print("Nivel incorrecto, usando Básico (3 años).")
+        años = 3
+
+    # Pedir datos del proyecto
+    inv_inicial = float(input("\nIntroduce la inversión inicial (número positivo): "))
+    tasa = float(input("Introduce la tasa de descuento anual (en %): ")) / 100
+    flujos = pedir_flujos(años)
+
+    # Calcular VAN
+    van_calculado = -inv_inicial + calcular_van(tasa, flujos)
+    print("\nCalculando resultado...")
+
+    # Nota según VAN
+    van_real = van_calculado  # En un entorno educativo, podrías definir un VAN "correcto" para el ejercicio
+    nota = calcular_nota(van_calculado, van_real)
+
+    print(f"\n--- RESULTADO DEL ALUMNO {nombre} ---")
+    print(f"Valor Actual Neto (VAN): {van_calculado:.2f}")
+    print(f"Nota obtenida: {nota}/10")
+
+    # Actualizar historial
+    historial[nombre]["intentos"] += 1
+    if nota >= 6:
+        historial[nombre]["aciertos"] += 1
+    porcentaje_aciertos = (historial[nombre]["aciertos"] / historial[nombre]["intentos"]) * 100
+    print(f"Porcentaje de aciertos histórico: {porcentaje_aciertos:.2f}%")
+
+    # Guardar historial
+    guardar_historial(historial)
+    print("\n¡Gracias por usar la calculadora de VAN!")
+
+if __name__ == "__main__":
+    main()

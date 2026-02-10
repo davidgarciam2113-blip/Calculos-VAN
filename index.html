@@ -1,99 +1,119 @@
-import json
-import os
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Calculadora de VAN - 2º Bachillerato</title>
+<style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    input { margin: 5px; }
+    .flujo { margin-bottom: 10px; }
+    .hidden { display: none; }
+</style>
+</head>
+<body>
+<h1>Calculadora de VAN para alumnos de 2º Bachillerato</h1>
 
-HISTORIAL_FILE = "historial_van.json"
+<div id="inicio">
+    Nombre del alumno: <input type="text" id="nombre"><br><br>
+    Nivel de dificultad: 
+    <select id="nivel">
+        <option value="3">Básico (3 años)</option>
+        <option value="6">Medio (6 años)</option>
+        <option value="10">Difícil (10 años)</option>
+    </select><br><br>
+    <button onclick="iniciarProyecto()">Iniciar Proyecto</button>
+</div>
 
-def cargar_historial():
-    if os.path.exists(HISTORIAL_FILE):
-        with open(HISTORIAL_FILE, "r") as f:
-            return json.load(f)
-    return {}
+<div id="proyecto" class="hidden">
+    <h3>Datos del proyecto</h3>
+    Inversión inicial: <input type="number" id="inversion"><br>
+    Tasa de descuento (%): <input type="number" id="tasa"><br><br>
 
-def guardar_historial(historial):
-    with open(HISTORIAL_FILE, "w") as f:
-        json.dump(historial, f)
+    <div id="flujos"></div>
 
-def calcular_van(tasa_descuento, flujos):
-    van = 0
-    for i, flujo in enumerate(flujos):
-        van += flujo / ((1 + tasa_descuento) ** (i + 1))
-    return van
+    <button onclick="calcularVAN()">Calcular VAN</button>
+</div>
 
-def pedir_flujos(num_years):
-    flujos = []
-    for año in range(1, num_years + 1):
-        print(f"\nAño {año}:")
-        ingreso = float(input("  Ingresos del año: "))
-        gasto = float(input("  Gastos del año (0 si no hay): "))
-        flujo_neto = ingreso - gasto
-        flujos.append(flujo_neto)
-    return flujos
+<div id="resultado" class="hidden"></div>
 
-def calcular_nota(van_calculado, van_real):
-    diferencia = abs(van_real - van_calculado)
-    if diferencia < 100:  # muy preciso
-        return 10
-    elif diferencia < 500:
-        return 8
-    elif diferencia < 1000:
-        return 6
-    elif diferencia < 2000:
-        return 4
-    else:
-        return 2
+<script>
+function iniciarProyecto() {
+    const nombre = document.getElementById("nombre").value.trim();
+    if (!nombre) {
+        alert("Introduce tu nombre.");
+        return;
+    }
 
-def main():
-    print("=== Calculadora de VAN para alumnos de 2º Bachillerato ===")
-    nombre = input("Introduce tu nombre: ").strip()
+    const nivel = parseInt(document.getElementById("nivel").value);
+    const flujosDiv = document.getElementById("flujos");
+    flujosDiv.innerHTML = "<h4>Flujos de caja por año</h4>";
 
-    # Cargar historial
-    historial = cargar_historial()
-    if nombre not in historial:
-        historial[nombre] = {"intentos": 0, "aciertos": 0}
+    // Generar inputs para cada año según dificultad
+    for (let i = 1; i <= nivel; i++) {
+        const div = document.createElement("div");
+        div.className = "flujo";
+        div.innerHTML = `
+            Año ${i} ingreso: <input type="number" id="ingreso${i}" value="0"> 
+            gasto: <input type="number" id="gasto${i}" value="0">
+        `;
+        flujosDiv.appendChild(div);
+    }
 
-    # Selección de dificultad
-    print("\nElige el nivel de dificultad:")
-    print("1 - Básico (3 años)")
-    print("2 - Medio (6 años)")
-    print("3 - Difícil (10 años)")
-    nivel = int(input("Nivel (1-3): "))
-    if nivel == 1:
-        años = 3
-    elif nivel == 2:
-        años = 6
-    elif nivel == 3:
-        años = 10
-    else:
-        print("Nivel incorrecto, usando Básico (3 años).")
-        años = 3
+    document.getElementById("inicio").classList.add("hidden");
+    document.getElementById("proyecto").classList.remove("hidden");
+    localStorage.setItem("nombreActual", nombre);
+}
 
-    # Pedir datos del proyecto
-    inv_inicial = float(input("\nIntroduce la inversión inicial (número positivo): "))
-    tasa = float(input("Introduce la tasa de descuento anual (en %): ")) / 100
-    flujos = pedir_flujos(años)
+function calcularVAN() {
+    const nombre = localStorage.getItem("nombreActual");
+    const inversion = parseFloat(document.getElementById("inversion").value);
+    const tasa = parseFloat(document.getElementById("tasa").value) / 100;
+    const nivel = parseInt(document.getElementById("nivel").value);
 
-    # Calcular VAN
-    van_calculado = -inv_inicial + calcular_van(tasa, flujos)
-    print("\nCalculando resultado...")
+    let flujos = [];
+    for (let i = 1; i <= nivel; i++) {
+        const ingreso = parseFloat(document.getElementById("ingreso"+i).value);
+        const gasto = parseFloat(document.getElementById("gasto"+i).value);
+        flujos.push(ingreso - gasto);
+    }
 
-    # Nota según VAN
-    van_real = van_calculado  # En un entorno educativo, podrías definir un VAN "correcto" para el ejercicio
-    nota = calcular_nota(van_calculado, van_real)
+    // Calcular VAN
+    let van = -inversion;
+    for (let i = 0; i < flujos.length; i++) {
+        van += flujos[i] / Math.pow(1 + tasa, i+1);
+    }
 
-    print(f"\n--- RESULTADO DEL ALUMNO {nombre} ---")
-    print(f"Valor Actual Neto (VAN): {van_calculado:.2f}")
-    print(f"Nota obtenida: {nota}/10")
+    // Calcular nota
+    const vanReal = van; // Para práctica, VAN calculado se considera "correcto"
+    let diferencia = Math.abs(vanReal - van);
+    let nota;
+    if (diferencia < 100) nota = 10;
+    else if (diferencia < 500) nota = 8;
+    else if (diferencia < 1000) nota = 6;
+    else if (diferencia < 2000) nota = 4;
+    else nota = 2;
 
-    # Actualizar historial
-    historial[nombre]["intentos"] += 1
-    if nota >= 6:
-        historial[nombre]["aciertos"] += 1
-    porcentaje_aciertos = (historial[nombre]["aciertos"] / historial[nombre]["intentos"]) * 100
-    print(f"Porcentaje de aciertos histórico: {porcentaje_aciertos:.2f}%")
+    // Actualizar historial en localStorage
+    let historial = JSON.parse(localStorage.getItem("historialVAN") || "{}");
+    if (!historial[nombre]) {
+        historial[nombre] = { intentos: 0, aciertos: 0 };
+    }
+    historial[nombre].intentos += 1;
+    if (nota >= 6) historial[nombre].aciertos += 1;
+    const porcentaje = (historial[nombre].aciertos / historial[nombre].intentos) * 100;
+    localStorage.setItem("historialVAN", JSON.stringify(historial));
 
-    # Guardar historial
-    guardar_historial(historial)
-    print("\n¡Gracias por usar la calculadora de VAN!")
+    // Mostrar resultados
+    const resultadoDiv = document.getElementById("resultado");
+    resultadoDiv.innerHTML = `
+        <h3>Resultado del alumno ${nombre}</h3>
+        Valor Actual Neto (VAN): ${van.toFixed(2)}<br>
+        Nota obtenida: ${nota}/10<br>
+        Porcentaje de aciertos histórico: ${porcentaje.toFixed(2)}%
+    `;
+    resultadoDiv.classList.remove("hidden");
+}
+</script>
+</body>
+</html>
 
-if __name__ == "__main__":
-    main()
